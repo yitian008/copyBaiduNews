@@ -112,6 +112,7 @@ class News163_Spider():
             p = p.replace('</strong>', '')
             p = p.replace('\n\n','\n')
             p = p.replace('\n\n','\n')
+            p = p.replace('\n\n', '\n')
             p = p.replace('<font>', '')
             p = p.replace('<br/>', '\n')
             # print p
@@ -146,62 +147,6 @@ class News163_Spider():
         except:
             print 'Email send failed!'
 
-def test():
-    print 'Task Starting...'
-    spider = News163_Spider()
-    print spider.spider_name
-
-    # spider.get_news_latest()
-    # single_url = 'http://news.163.com/17/0404/13/CH6BE3OR0001875P.html'
-    # result_dic = spider.get_single_page(single_url)
-    # print 'title:'
-    # print result_dic['title']
-    # print 'time:'
-    # print result_dic['time']
-    # print 'content:'
-    # print result_dic['content']
-
-    # 获取列表信息
-    url_lists = spider.get_news_latest()
-
-    email_content = []
-    # 获取单条新闻内容
-    count = 1 # 计数,估计时间
-    for url in url_lists:
-        if count == 5:
-            break
-        print '正在爬取第', count, '条新闻...'
-        count += 1
-        dic = spider.get_single_page(url)
-        one_news = []
-        if dic:
-            one_news.append(dic['title'])
-            one_news.append(dic['time'])
-            one_news.append(dic['content'])
-            email_content.append(one_news)
-
-
-    print '您好'
-    # 邮件发送
-    send_content = '你好,我是李鹏飞创建的网易新闻爬虫,以下是为您爬取的5条网易新闻...\n\n'
-    for news in email_content:
-        send_content += '新闻标题:'
-        send_content += news[0]
-        send_content += '\n\n'
-        send_content += '新闻时间:'
-        send_content += news[1]
-        send_content += '\n\n'
-        send_content += news[2]
-        send_content += '\n\n'
-
-    print '开始打印...'
-    print send_content
-    # 保存到本地
-    f = open('test.txt', 'w')
-    f.write(send_content)
-    f.close()
-
-    print 'spider mission completed!\nTask stopped!'
 
 def main():
     print 'Task Starting...'
@@ -212,8 +157,8 @@ def main():
     all_news_content = []
     count = 1
     for url in url_list:
-        if count == 5:
-            break
+        # if count == 6:
+        #     break
         print '正在爬取第%d页...' % count
         count += 1
         print url
@@ -228,16 +173,14 @@ def main():
     # 邮件发送
     send_content = '你好,我是李鹏飞创建的网易新闻爬虫,以下是为您爬取的5条网易新闻...\n\n'
     for news in all_news_content:
+        send_content += '******************************************************\n'
         send_content += r'新闻标题:'
-        print news[0]
         send_content += news[0]
         send_content += '\n'
         send_content += r'新闻时间:'
         send_content += news[1]
         send_content += '\n\n'
-        send_content += r'新闻正文:'
         send_content += news[2]
-        send_content += '\n\n\n'
 
     # 保存到本地
     f = open('test.txt', 'w')
