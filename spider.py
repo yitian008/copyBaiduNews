@@ -31,9 +31,12 @@ import urllib2
 import random
 import socket
 
-# get_news_latest的一个过滤函数
-def not_has_class(tag):
-    return not tag.has_attr('class')
+
+# 把 str 编码由 默认ascii 改为 utf8:解决此类异常
+# UnicodeDecodeError: 'ascii' codec can't decode byte 0xe4 in position 0: ordinal not in range(128)
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 # get_single_page的一个过滤函数
 def not_has_class_and_not_has_href(tag):
@@ -41,7 +44,7 @@ def not_has_class_and_not_has_href(tag):
 
 class News163_Spider():
     def __init__(self):
-        self.spider_name = "Hello! \nI am News 163 Spider Created By LPF!"
+        self.spider_name = "Hello! I am News 163 Spider Created By LPF!\n"
 
     # 获取滚动新闻列表的链接地址
     def get_news_latest(self, url="http://news.163.com/latest/"):
@@ -49,53 +52,38 @@ class News163_Spider():
         browser.get(url)
         # 传给bs4
         bsObj = BeautifulSoup(browser.page_source)
-
-        # 初次过滤ul
-        news_list = bsObj.findAll('ul', {'class' : 'list_txt'})
-        tmp = ''
-        for news in news_list:
-            tmp += str(news)
-        news_list = BeautifulSoup(tmp)
-
-        # 二次过滤ul中的a
-        news_list = news_list.findAll('a')
-        tmp = ''
-        for news in news_list:
-            tmp += str(news)
-        news_list = BeautifulSoup(tmp)
-
-        # 三次过滤a
-        news_list = news_list.findAll(not_has_class)
-        lists = []
-        count = 0
-        for i in news_list:
-            # 前两条过滤掉,不是想要的
-            if count <= 1:
-                count += 1
-            else:
-                lists.append(i.get('href'))
-        print '新闻数量:', len(lists)
         browser.quit()
+
+        # 正则匹配目标链接<a>,正则表达式:以http://news.163.com/开头,并包含.html的<a>
+        news_list = bsObj.find_all(href=re.compile(r'^http://news.163.com/(.*?).html(.*?)'))
+        # 匹配结果最后一个不是想要的,去掉
+        news_list = news_list[:-1]
+        # 转成string
+        news_list = ''.join(str(x) for x in news_list)
+        # 转成BeautifulSoup
+        news_list = BeautifulSoup(news_list)
+        lists = []
+        for i in news_list.find_all('a'):
+            lists.append(i.get('href'))
+        print '新闻数量:', len(lists)
         # 返回滚动新闻列表的全部链接
         return lists
 
     # 获取单一新闻内容页面的内容
     #1.标题; 2.时间; 3.tag(暂时未做); 4.正文
     def get_single_page(self, url):
-        headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36'}
-        r = requests.get(url, headers=headers)
-        bsObj = BeautifulSoup(r.text)
         try:
+            headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36'}
+            r = requests.get(url, headers=headers)
+            bsObj = BeautifulSoup(r.text)
+
             #查找标题
-            title = bsObj.findAll('h1')
-            title = str(title[0])
-            title = title.replace('<h1>', '')
-            title = title.replace('</h1>', '')
+            title = bsObj.h1.string
             # print title
 
             # 查找时间
-            news_time = bsObj.findAll('div', class_='post_time_source')
-            news_time = str(news_time[0])
+            news_time = bsObj.find('div', class_='post_time_source')
+            news_time = news_time.contents[0]
             # 正则
             pattern = r'(2017)(.*)'
             pattern = re.compile(pattern)
@@ -103,21 +91,19 @@ class News163_Spider():
             news_time = news_time[:19]
             # print news_time
 
-
             # 查找正文
-            content = bsObj.findAll('p', class_='')
-            tmp = ''
-            for p in content:
-                tmp += str(p)
-            bsObj = BeautifulSoup(tmp)
-            content = bsObj.findAll(not_has_class_and_not_has_href)
-            print 'content length is :', len(content)
-            p = ''
-            for i in range(0, len(content)):
-                if 'AD' in str(content[i]) or '<a' in content[i] or '<img' in str(content[i]) or u'用微信扫码二维码' in content[i] or u'分享至好友和朋友圈' in content[i]:
-                    pass
-                else:
-                    p += str(content[i])
+            content = bsObj.find_all('p', class_='')
+            final_content = []
+            for line in content:
+                line = str(line)
+                flag = True
+                for g in (r'!--', r'style', r'AD', r'<a', r'img', r'用微信扫码二维码', r'分享至好友和朋友圈'):
+                    if g in line:
+                        flag = False
+                if flag:
+                    final_content.append(line)
+            p = ''.join(str(x) for x in final_content)
+            p = ''.join(str(x) for x in final_content)
             p = p.replace('<p>', '')
             p = p.replace('</p>', '\n')
             p = p.replace('<b>', '')
@@ -128,9 +114,8 @@ class News163_Spider():
             p = p.replace('\n\n','\n')
             p = p.replace('<font>', '')
             p = p.replace('<br/>', '\n')
-
             # print p
-
+            # 以dict形式返回新闻内容
             result_dic = {}
             result_dic['title'] = title
             result_dic['time'] = news_time
@@ -161,7 +146,7 @@ class News163_Spider():
         except:
             print 'Email send failed!'
 
-def main():
+def test():
     print 'Task Starting...'
     spider = News163_Spider()
     print spider.spider_name
@@ -195,6 +180,8 @@ def main():
             one_news.append(dic['content'])
             email_content.append(one_news)
 
+
+    print '您好'
     # 邮件发送
     send_content = '你好,我是李鹏飞创建的网易新闻爬虫,以下是为您爬取的5条网易新闻...\n\n'
     for news in email_content:
@@ -204,13 +191,11 @@ def main():
         send_content += '新闻时间:'
         send_content += news[1]
         send_content += '\n\n'
-        send_content += '新闻正文:'
         send_content += news[2]
         send_content += '\n\n'
 
-    email_address = '372511930@qq.com'
-    spider.send_email(email_address, send_content)
-
+    print '开始打印...'
+    print send_content
     # 保存到本地
     f = open('test.txt', 'w')
     f.write(send_content)
@@ -218,7 +203,49 @@ def main():
 
     print 'spider mission completed!\nTask stopped!'
 
+def main():
+    print 'Task Starting...'
+    spider = News163_Spider()
+    print spider.spider_name
+    url_list = spider.get_news_latest()
+    # all_news_content 代表所有的新闻列表,共40条
+    all_news_content = []
+    count = 1
+    for url in url_list:
+        if count == 5:
+            break
+        print '正在爬取第%d页...' % count
+        count += 1
+        print url
+        result_dic = spider.get_single_page(url)
+        one_news = []
+        if result_dic:
+            one_news.append(result_dic['title'])
+            one_news.append(result_dic['time'])
+            one_news.append(result_dic['content'])
+            all_news_content.append(one_news)
 
+    # 邮件发送
+    send_content = '你好,我是李鹏飞创建的网易新闻爬虫,以下是为您爬取的5条网易新闻...\n\n'
+    for news in all_news_content:
+        send_content += r'新闻标题:'
+        print news[0]
+        send_content += news[0]
+        send_content += '\n'
+        send_content += r'新闻时间:'
+        send_content += news[1]
+        send_content += '\n\n'
+        send_content += r'新闻正文:'
+        send_content += news[2]
+        send_content += '\n\n\n'
+
+    # 保存到本地
+    f = open('test.txt', 'w')
+    f.write(send_content)
+    f.close()
+
+    print 'spider mission completed!\nTask stopped!'
+    pass
 
 if __name__ == '__main__':
     main()
